@@ -33,6 +33,9 @@ import {
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { HeroHighlight } from "@/components/ui/hero-highlight";
 import Toast from '@/components/ui/Toast';
+import OtpModal from '@/components/ui/OtpModal';
+import ForgotPassModal from '@/components/ui/ForgotPassModal';
+import api from '@/services/api';
 
 export default function LoginCardSection() {
   const dispatch = useDispatch();
@@ -56,6 +59,9 @@ export default function LoginCardSection() {
   const [termsChecked, setTermsChecked] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [userEmailForOtp, setUserEmailForOtp] = useState('');
+  const [showForgotModal, setShowForgotModal] = useState(false);
 
   const [errors, setErrors] = useState({});
   const isSubmitting = status === 'loading';
@@ -155,11 +161,18 @@ export default function LoginCardSection() {
                       </div>
                     </div>
 
-                    <div className="flex items-center">
+                    <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <Checkbox id="remember" className="border-zinc-700 data-[state=checked]:bg-zinc-50 data-[state=checked]:text-zinc-900" />
                         <Label htmlFor="remember" className="text-zinc-400">Remember me</Label>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotModal(true)}
+                        className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                      >
+                        Forgot password?
+                      </button>
                     </div>
 
                     <Button disabled={isSubmitting} onClick={async (e) => {
@@ -550,6 +563,27 @@ export default function LoginCardSection() {
           duration={5000}
         />
       )}
+
+      {/* OTP Verification Modal */}
+      <OtpModal
+        isOpen={showOtpModal}
+        email={userEmailForOtp}
+        onClose={() => setShowOtpModal(false)}
+        onVerified={(data) => {
+          setToast({ type: 'success', title: 'Verified!', message: 'Email verified successfully!' });
+          const role = data.user?.role || 'ward_staff';
+          if (role === 'hospital_admin') navigate('/admin/dashboard');
+          else if (role === 'manager') navigate('/manager/dashboard');
+          else if (role === 'er_staff') navigate('/er/dashboard');
+          else navigate('/staff/dashboard');
+        }}
+      />
+
+      {/* Forgot Password Modal */}
+      <ForgotPassModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+      />
     </HeroHighlight>
   );
 }

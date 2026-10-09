@@ -16,6 +16,7 @@ import {
 import { Home, Settings, Users, BarChart2, Bell } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { BedSelection } from '@/components/ui/bed-selection';
+import ProductivityToolbar from '@/components/ui/ProductivityToolbar';
 import {
     Select,
     SelectTrigger,
@@ -326,6 +327,10 @@ function Dashboard() {
                                 </Select>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="w-full max-w-5xl mx-auto px-4">
+                        <ProductivityToolbar onRefreshNeeded={fetchBeds} />
                     </div>
 
                     <div className="w-full max-w-5xl mx-auto flex flex-col items-center py-4">

@@ -149,17 +149,41 @@ async function connectDB() {
     console.log('⚡ Fallback: Starting In-Memory MongoDB Server...');
 
     try {
+      const path = require('path');
+      const fs = require('fs');
       const { MongoMemoryServer } = require('mongodb-memory-server');
-      const mongoServer = await MongoMemoryServer.create();
+
+      const dataDir = path.join(__dirname, '../data/db');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+
+      const mongoServer = await MongoMemoryServer.create({
+        instance: {
+          dbPath: dataDir,
+          storageEngine: 'wiredTiger'
+        }
+      });
       uri = mongoServer.getUri();
-      console.log(`🔄 Connecting to In-Memory MongoDB at ${uri}...`);
+      console.log(`🔄 Connecting to Persistent Local Database at ${uri} (Storage: ./backend/data/db)...`);
       await mongoose.connect(uri);
-      console.log('✅ Connected to In-Memory MongoDB successfully!');
+      console.log('✅ Connected to Persistent Local Database successfully!');
       await seedInitialDataIfNeeded();
       return mongoose;
     } catch (memErr) {
-      console.error('❌ Failed to start In-Memory MongoDB:', memErr.message);
-      return null;
+      console.error('❌ Persistent DB creation error, fallback to memory-only:', memErr.message);
+      try {
+        const { MongoMemoryServer } = require('mongodb-memory-server');
+        const memoryServer = await MongoMemoryServer.create();
+        uri = memoryServer.getUri();
+        await mongoose.connect(uri);
+        console.log('✅ Connected to In-Memory MongoDB fallback successfully!');
+        await seedInitialDataIfNeeded();
+        return mongoose;
+      } catch (err2) {
+        console.error('❌ Failed to start database server:', err2.message);
+        return null;
+      }
     }
   }
 }

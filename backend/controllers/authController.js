@@ -284,3 +284,192 @@ exports.deleteAccount = async (req, res) => {
     });
   }
 };
+
+const emailService = require('../services/emailService');
+
+/**
+ * @desc    Send email OTP verification
+ * @route   POST /api/auth/send-otp
+ * @access  Public
+ */
+exports.sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    const mailResult = await emailService.sendOTPEmail(user.email, user.name, otp);
+
+    res.status(200).json({
+      success: true,
+      message: `OTP sent successfully to ${user.email}`,
+      data: {
+        otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+        previewUrl: mailResult.previewUrl
+      }
+    });
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send OTP email', error: error.message });
+  }
+};
+
+/**
+ * @desc    Verify email OTP
+ * @route   POST /api/auth/verify-otp
+ * @access  Public
+ */
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.otp || user.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+    }
+
+    if (user.otpExpires && user.otpExpires < new Date()) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired' });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        ward: user.ward,
+        assignedWards: user.assignedWards,
+        department: user.department
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully!',
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          ward: user.ward,
+          assignedWards: user.assignedWards,
+          department: user.department,
+          isVerified: user.isVerified
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify OTP', error: error.message });
+  }
+};
+
+/**
+ * @desc    Forgot password - Request OTP
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found with this email' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordToken = otp;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    const mailResult = await emailService.sendPasswordResetEmail(user.email, user.name, otp);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset OTP sent to your email',
+      data: {
+        otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+        previewUrl: mailResult.previewUrl
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process forgot password request', error: error.message });
+  }
+};
+
+/**
+ * @desc    Reset password with OTP
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email, OTP, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.resetPasswordToken || user.resetPasswordToken !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid reset code' });
+    }
+
+    if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
+      return res.status(400).json({ success: false, message: 'Reset code has expired' });
+    }
+
+    user.password = newPassword; // Pre-save hook will hash password
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully! You can now log in.'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Failed to reset password', error: error.message });
+  }
+};
+
