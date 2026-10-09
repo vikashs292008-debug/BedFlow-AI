@@ -139,10 +139,11 @@ app.get('/api/test/broadcast', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
-connectDB().then(() => {
-  server.listen(PORT, () => console.log(`Backend: listening on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`🚀 Backend server listening on port ${PORT}`);
+  connectDB().catch(err => console.error('DB connect error:', err));
 });
 
 // Graceful shutdown
