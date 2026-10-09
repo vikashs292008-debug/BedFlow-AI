@@ -51,20 +51,34 @@ export default function LoginCardSection() {
   const [role, setRole] = useState('ward_staff');
   const [ward, setWard] = useState('');
   const [department, setDepartment] = useState('');
-  const nameRef = useRef(null);
-  const loginEmailRef = useRef(null);
-  const loginPwRef = useRef(null);
-  const signupEmailRef = useRef(null);
-  const signupPwRef = useRef(null);
-  const [termsChecked, setTermsChecked] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [userEmailForOtp, setUserEmailForOtp] = useState('');
-  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
 
   const [errors, setErrors] = useState({});
   const isSubmitting = status === 'loading';
+
+  const handleQuickDemoLogin = async (email, password) => {
+    setLoginEmail(email);
+    setLoginPassword(password);
+    setErrors({});
+    try {
+      const resultAction = await dispatch(loginAction({ email, password }));
+      if (loginAction.fulfilled.match(resultAction)) {
+        const userRole = resultAction.payload.user.role;
+        if (userRole === 'hospital_admin') navigate('/admin/dashboard');
+        else if (userRole === 'manager') navigate('/manager/dashboard');
+        else if (userRole === 'er_staff') navigate('/er/dashboard');
+        else navigate('/staff/dashboard');
+      } else {
+        setErrors({ loginPassword: resultAction.payload || 'Login failed' });
+      }
+    } catch (err) {
+      setErrors({ loginPassword: 'An unexpected error occurred' });
+    }
+  };
 
   // Show notification from navigation state (e.g., after account deletion)
   useEffect(() => {
@@ -145,7 +159,14 @@ export default function LoginCardSection() {
                       <Label htmlFor="login-email" className="text-zinc-300">Email</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                        <Input ref={loginEmailRef} id="login-email" type="email" placeholder="you@example.com" className="pl-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
+                        <Input
+                          id="login-email"
+                          type="email"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="you@example.com"
+                          className="pl-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600"
+                        />
                       </div>
                       {errors.loginEmail && <p className="text-xs text-red-400 mt-1">{errors.loginEmail}</p>}
                     </div>
@@ -154,7 +175,14 @@ export default function LoginCardSection() {
                       <Label htmlFor="login-password" className="text-zinc-300">Password</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                        <Input ref={loginPwRef} id="login-password" type={showLoginPw ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
+                        <Input
+                          id="login-password"
+                          type={showLoginPw ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="pl-10 pr-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600"
+                        />
                         <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-zinc-400 hover:text-zinc-200" onClick={() => setShowLoginPw(v => !v)} aria-label={showLoginPw ? "Hide password" : "Show password"}>
                           {showLoginPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
@@ -176,12 +204,12 @@ export default function LoginCardSection() {
                     </div>
 
                     <Button disabled={isSubmitting} onClick={async (e) => {
-                      e.preventDefault(); // Prevent form submission/page refresh
+                      e.preventDefault();
                       setErrors({});
                       try {
                         const payload = {
-                          email: loginEmailRef.current?.value || '',
-                          password: loginPwRef.current?.value || '',
+                          email: loginEmail,
+                          password: loginPassword,
                         };
                         const result = loginSchema.safeParse(payload);
                         if (!result.success) {
@@ -193,10 +221,8 @@ export default function LoginCardSection() {
                           return;
                         }
 
-                        // Call login action
                         const resultAction = await dispatch(loginAction(payload));
                         if (loginAction.fulfilled.match(resultAction)) {
-                          // Success - navigate to role-specific dashboard
                           const userRole = resultAction.payload.user.role;
                           if (userRole === 'hospital_admin') {
                             navigate('/admin/dashboard');
@@ -210,7 +236,6 @@ export default function LoginCardSection() {
                             navigate('/dashboard');
                           }
                         } else {
-                          // Error - show message
                           setErrors({ loginPassword: resultAction.payload || 'Login failed' });
                         }
                       } catch (err) {
@@ -220,6 +245,40 @@ export default function LoginCardSection() {
                       {isSubmitting ? 'Logging in...' : 'Continue'}
                     </Button>
                     {errors.loginPassword && <p className="text-xs text-red-400 mt-1">{errors.loginPassword}</p>}
+
+                    <div className="pt-3 border-t border-zinc-800/80 text-left space-y-2">
+                      <p className="text-[11px] text-zinc-400 font-medium">⚡ Quick Demo 1-Click Login:</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleQuickDemoLogin('sarah.chen@hospital.com', 'admin123')}
+                          className="px-2.5 py-1 text-[11px] bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-md transition-colors"
+                        >
+                          Hospital Admin
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickDemoLogin('anuradha@hospital.com', 'manager123')}
+                          className="px-2.5 py-1 text-[11px] bg-purple-950/80 hover:bg-purple-900 border border-purple-800 text-purple-300 rounded-md transition-colors"
+                        >
+                          Manager
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickDemoLogin('staff.icu1@hospital.com', 'staff123')}
+                          className="px-2.5 py-1 text-[11px] bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 rounded-md transition-colors"
+                        >
+                          Ward Staff
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickDemoLogin('er.staff1@hospital.com', 'er123')}
+                          className="px-2.5 py-1 text-[11px] bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-md transition-colors"
+                        >
+                          ER Staff
+                        </button>
+                      </div>
+                    </div>
 
                     {/* <div className="relative">
                       <Separator className="bg-zinc-800" />
@@ -296,7 +355,7 @@ export default function LoginCardSection() {
                           <Label htmlFor="name" className="text-zinc-300">Full Name</Label>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                            <Input ref={nameRef} id="name" type="text" placeholder="John Doe" className="h-10 pl-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
+                            <Input id="name" type="text" value={signupName} onChange={(e) => setSignupName(e.target.value)} placeholder="John Doe" className="h-10 pl-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
                           </div>
                           {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
                         </div>
@@ -305,7 +364,7 @@ export default function LoginCardSection() {
                           <Label htmlFor="signup-email" className="text-zinc-300">Email</Label>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                            <Input ref={signupEmailRef} id="signup-email" type="email" placeholder="you@example.com" className="h-10 pl-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
+                            <Input id="signup-email" type="email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} placeholder="you@example.com" className="h-10 pl-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
                           </div>
                           {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
                         </div>
@@ -314,7 +373,7 @@ export default function LoginCardSection() {
                           <Label htmlFor="signup-password" className="text-zinc-300">Password</Label>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                            <Input ref={signupPwRef} id="signup-password" type={showSignupPw ? "text" : "password"} placeholder="••••••••" className="h-10 pl-10 pr-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
+                            <Input id="signup-password" type={showSignupPw ? "text" : "password"} value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder="••••••••" className="h-10 pl-10 pr-10 bg-zinc-950 border-zinc-800 text-zinc-50 placeholder:text-zinc-600" />
                             <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-zinc-400 hover:text-zinc-200" onClick={() => setShowSignupPw(v => !v)} aria-label={showSignupPw ? "Hide password" : "Show password"}>
                               {showSignupPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
